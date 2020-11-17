@@ -1,19 +1,20 @@
-let store = {
+let store = Immutable.Map({
     currentTab: 'curiosity',
     roverInfo: {},
     roverImages: [],
-}
+})
 
 // add our markup to the page
 const root = document.getElementById('root');
 const tabs= document.querySelectorAll('.tab');
 
-const render = async (root, state) => {
-    root.innerHTML = App(state, renderInfo, renderImages)
+const render = async (root) => {
+    root.innerHTML = App(store, renderInfo, renderImages)
 }
-const updateStore = (store, newState) => {
-    store = Object.assign(store, newState)
-    render(root, store)
+const updateStore = (key, value) => {
+//    store = Object.assign(store, newState)
+store = store.set(key, value) 
+    render(root)
 }
 
 
@@ -21,9 +22,7 @@ const updateStore = (store, newState) => {
 
 // App() is a higher order function-
 const App = (state, renderInfo, renderImages) => {
-    const { roverInfo, roverImages } = state
-
-    return generateHTML(roverInfo, roverImages, renderInfo, renderImages);
+    return generateHTML(state.get('roverInfo'), state.get('roverImages'), renderInfo, renderImages);
 }
 
 // generateHTML() is a higher order function-
@@ -42,25 +41,25 @@ const generateHTML = (roverInfo, roverImages,generateInfo,generateImage) => {
     `
 }
 
-const fetchData= async (store,currentTab)=>{
-    await getRoverData(store,currentTab);
-    await getRoverImages(store,currentTab);
+const fetchData= async (currentTab)=>{
+    await getRoverData(currentTab);
+    await getRoverImages(currentTab);
 }
 
 // listening for load event because page should load before any JS is called
 window.addEventListener('load', async () => {
-    init(tabs,store);
-    await fetchData(store,"curiosity");
-    render(root, store);
+    init(tabs);
+    await fetchData("curiosity");
+    render(root);
 })
 
-const init = async (tabs,store)=>{
+const init = async (tabs)=>{
     tabs.forEach(tab => {
         tab.addEventListener('click',async e => {
             const currentTab=e.target.id;
-            await updateStore(store,{currentTab: currentTab});
+            await updateStore('currentTab', currentTab);
             activeTab(tabs,currentTab);
-            fetchData(store,currentTab);
+            fetchData(currentTab);
         })
     });
 }
@@ -79,22 +78,23 @@ const activeTab = (tabs,currentTab)=>{
 
 // Pure function that renders conditional information --
 const renderInfo = (info) => {
+    if(!info){
+        return '';
+    }
     return `
         <div class="info">
-            <strong>About</strong>
-            <p>${info.about}</p>
-            <br/>
             <strong>Launch Date</strong>
-            <p>${info.launchDate}</p>
-            <br/>
+            <p>${info.launch_date}</p>
             <strong>Landing Date</strong>
-            <p>${info.landingDate}</p>
-            <br/>
-            <strong>Max Speed</strong>
-            <p>${info.maxSpeed}</p>
-            <br/>
-            <strong>Distance covered</strong>
-            <p>${info.distanceCovered}</p>
+            <p>${info.landing_date}</p>
+            <strong>Max Date</strong>
+            <p>${info.max_date}</p>
+            <strong>Status</strong>
+            <p>${info.status}</p>
+            <strong>Status</strong>
+            <p>${info.total_photos}</p>
+            <strong>Last Date Photo taken </strong>
+            <p>${info.max_earth_date}</p>
         </div>
     `
 }
@@ -118,8 +118,8 @@ const renderImages = (images) => {
 
 // ------------------------------------------------------  API CALLS
 
-const getRoverData = (store,roverName) => {
-    fetch(`http://localhost:8000/roverInfo`,{
+const getRoverData = (roverName) => {
+    return fetch(`http://localhost:9000/roverInfo`,{
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -127,17 +127,17 @@ const getRoverData = (store,roverName) => {
         body: JSON.stringify({roverName:roverName})
     })
         .then(res => res.json())
-        .then(roverInfo => updateStore(store, { roverInfo: roverInfo }))
+        .then(roverInfo => updateStore('roverInfo', roverInfo))
 }
 
-const getRoverImages = (store,roverName) => {
-    fetch(`http://localhost:8000/fetchImage`,{
+const getRoverImages = (roverName) => {
+    return fetch(`http://localhost:9000/fetchImage`,{
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
           },
-        body: JSON.stringify({roverName:roverName})
+        body: JSON.stringify({roverName:roverName, earthDate: store.get('roverInfo').max_earth_date})
     })
         .then(res => res.json())
-        .then(roverImages => updateStore(store, { roverImages: roverImages }))
+        .then(roverImages => updateStore('roverImages', roverImages ))
 }
